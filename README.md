@@ -1,220 +1,165 @@
-# HR CV Evaluator
+# GISELLE - AI-Powered HR CV Evaluator
 
-A professional AI-powered CV evaluation tool that provides comprehensive candidate assessment across seven key professional metrics using the Deepseek R1 0528 Qwen3 8B model.
+A comprehensive, professional CV evaluation system built with Next.js 15, TypeScript, and AI-powered analysis using Mistral AI.
 
-## Features
+## 🚀 Features
 
-### 🎯 **Comprehensive Assessment**
-- **7 Professional Metrics**: Interpersonal Skills, Cognitive Abilities, Emotional Intelligence, Professional Qualities, Cultural Fit, Technical Aptitude, and Life Experience
-- **AI-Powered Analysis**: Uses Deepseek R1 0528 Qwen3 8B for intelligent CV evaluation
-- **Professional HR Style**: Formal, HR-like analysis suitable for professional documentation
+### Core Functionality
+- **AI-Powered CV Analysis**: Advanced analysis using Mistral AI's `magistral-small-2506` model
+- **Multi-Format Support**: Upload PDF, DOC, and DOCX files
+- **Comprehensive Scoring**: 7 professional metrics evaluation
+- **Fallback System**: Robust keyword-based analysis when AI is unavailable
 
-### 📊 **Visual Analytics**
-- **Radar Charts**: Visual representation of competency across all metrics
-- **Bar Charts**: Detailed score breakdown for individual metrics
-- **Performance Indicators**: Color-coded scoring system (Exceptional, Strong, Satisfactory, Developing)
+### Assessment Metrics
+1. **Interpersonal Skills** - Communication, Leadership, Collaboration
+2. **Cognitive Abilities** - Analytical thinking, Creativity, Learning ability
+3. **Emotional Intelligence** - Self-awareness, Social awareness, Emotional regulation
+4. **Professional Qualities** - Work ethic, Adaptability, Entrepreneurial spirit
+5. **Cultural Fit** - Team culture, Organizational values, Work style
+6. **Technical Aptitude** - Problem-solving, Learning capacity, Innovation
+7. **Life Experience** - Personal growth, Diversity exposure, Personal development
 
-### 🔄 **Multi-CV Comparison**
-- **Leaderboard**: Rank candidates by overall performance
-- **Metric Champions**: Identify top performers in each category
-- **Comparison Matrix**: Detailed side-by-side analysis
-- **Historical Tracking**: Store and compare multiple CV analyses
+### Advanced Features
+- **Visual Analytics**: Radar charts and bar charts for score visualization
+- **Multi-CV Comparison**: Compare multiple candidates with leaderboard
+- **HR-Style Reports**: Professional analysis suitable for HR documentation
+- **Real-time Processing**: Fast analysis with retry logic and error handling
 
-### 📁 **File Support**
-- **PDF Documents**: Full PDF parsing and analysis
-- **Word Documents**: Support for .doc and .docx files
-- **Text Extraction**: Intelligent content extraction for analysis
+## 🛠️ Tech Stack
 
-## Setup Instructions
+- **Frontend**: Next.js 15, React 19, TypeScript
+- **Styling**: Tailwind CSS, shadcn/ui components
+- **Charts**: Recharts for data visualization
+- **AI Integration**: Mistral AI API with official SDK
+- **Package Manager**: pnpm
 
-### 1. Prerequisites
-- Node.js 18+ 
-- pnpm (recommended) or npm
-- Deepseek API key
+## 📦 Installation
 
-### 2. Installation
-```bash
-# Clone the repository
-git clone <repository-url>
-cd hr-cv-evaluator
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/yourusername/GISELLE.git
+   cd GISELLE
+   ```
 
-# Install dependencies
-pnpm install
-```
+2. **Install dependencies**:
+   ```bash
+   pnpm install
+   ```
 
-### 3. Environment Configuration
-Create a `.env.local` file in the root directory:
-```bash
-DEEPSEEK_KEY=your_deepseek_api_key_here
-```
+3. **Set up environment variables**:
+   Create a `.env.local` file in the root directory:
+   ```bash
+   MISTRAL_API_KEY=mist-your_actual_api_key_here
+   ```
 
-Get your Deepseek API key from: https://platform.deepseek.com/
+4. **Run the development server**:
+   ```bash
+   pnpm dev
+   ```
 
-### 4. Run the Application
-```bash
-# Development mode
-pnpm dev
+5. **Open your browser**:
+   Navigate to [http://localhost:3000](http://localhost:3000)
 
-# Build for production
-pnpm build
-pnpm start
-```
+## 🔧 Configuration
 
-The application will be available at `http://localhost:3000`
+### Mistral AI Setup
+1. Get your API key from [Mistral AI Console](https://console.mistral.ai/)
+2. Add it to `.env.local` as `MISTRAL_API_KEY`
+3. The app will automatically use the `magistral-small-2506` model
 
-## Usage
+### Environment Variables
+- `MISTRAL_API_KEY`: Your Mistral AI API key (required for AI analysis)
+- `MISTRAL_KEY`: Alternative environment variable name (fallback)
 
-### 1. Upload CV
-- Navigate to the home page
-- Click "Upload CV for Analysis"
-- Select a PDF or Word document (.pdf, .doc, .docx)
-- Click "Begin Professional Assessment"
-
-### 2. View Analysis Results
-- **Candidate Profile**: Basic information extracted from CV
-- **Overall Performance**: Average score across all metrics
-- **Top Strength**: Highest scoring competency area
-- **Professional Background**: Experience, education, and skills
-- **Skills & Activities**: Technical skills and community involvement
-- **Visual Charts**: Radar and bar charts for metric comparison
-- **Detailed Analysis**: Professional HR-style assessment
-
-### 3. Compare Multiple CVs
-- Upload additional CVs to build a comparison database
-- Navigate to "CV Comparison Dashboard"
-- View leaderboard rankings
-- Identify metric champions
-- Export comparison reports
-
-## Assessment Metrics
-
-### 1. **Interpersonal Skills** (Communication, Leadership, Collaboration)
-- Evaluates team dynamics, communication abilities, and leadership potential
-- Keywords: team, lead, manage, communicate, present, speak, write, collaborate
-
-### 2. **Cognitive Abilities** (Analytical thinking, Creativity, Learning ability)
-- Assesses problem-solving skills, innovation, and learning capacity
-- Keywords: analyze, research, solve, create, innovate, learn, study, problem
-
-### 3. **Emotional Intelligence** (Self-awareness, Social awareness, Emotional regulation)
-- Measures emotional maturity and social skills
-- Keywords: empathy, emotional, awareness, self, social, relationship, understanding
-
-### 4. **Professional Qualities** (Work ethic, Adaptability, Entrepreneurial spirit)
-- Evaluates professional behavior and adaptability
-- Keywords: dedicated, hardworking, adapt, flexible, entrepreneur, initiative, drive
-
-### 5. **Cultural Fit** (Team culture, Organizational values, Work style)
-- Assesses alignment with startup/company culture
-- Keywords: startup, fast-paced, growth, culture, values, team, collaborative
-
-### 6. **Technical Aptitude** (Problem-solving, Learning capacity, Innovation)
-- Evaluates technical skills and innovation potential
-- Keywords: technical, programming, software, technology, code, develop, build
-
-### 7. **Life Experience** (Personal growth, Diversity exposure, Personal development)
-- Measures personal development and diverse experiences
-- Keywords: volunteer, travel, diverse, culture, experience, growth, development
-
-## Technical Architecture
-
-### Frontend
-- **Next.js 15**: React framework with App Router
-- **TypeScript**: Type-safe development
-- **Tailwind CSS**: Utility-first styling
-- **shadcn/ui**: Modern component library
-- **Recharts**: Data visualization
-
-### Backend
-- **Next.js API Routes**: Server-side API endpoints
-- **Deepseek API**: AI-powered CV analysis
-- **Local Storage**: Client-side data persistence
-
-### AI Integration
-- **Model**: Deepseek R1 0528 Qwen3 8B
-- **Analysis**: Multi-step AI evaluation process
-- **Fallback**: Keyword-based scoring for reliability
-
-## API Endpoints
+## 📊 API Endpoints
 
 ### POST `/api/analyze-cv`
-Analyzes a CV using AI and returns comprehensive evaluation results.
+Analyzes a CV and returns comprehensive evaluation results.
 
-**Request Body:**
+**Request Body**:
 ```json
 {
-  "fileName": "string",
-  "fileContent": "string"
+  "fileName": "candidate-cv.pdf",
+  "fileContent": "CV text content..."
 }
 ```
 
-**Response:**
+**Response**:
 ```json
 {
-  "id": "number",
-  "fileName": "string",
-  "candidateName": "string",
-  "uploadDate": "string",
+  "id": 1234567890,
+  "fileName": "candidate-cv",
+  "candidateName": "John Doe",
+  "uploadDate": "2025-06-17T23:26:43.400Z",
   "scores": [
     {
-      "metric": "string",
-      "score": "number"
+      "metric": "Interpersonal Skills",
+      "score": 75
     }
+    // ... all 7 metrics
   ],
-  "averageScore": "number",
-  "analysis": "string",
+  "averageScore": 72,
+  "analysis": "Professional HR-style analysis...",
   "profile": {
-    "experience": "string",
-    "education": "string",
-    "skills": "string",
-    "activities": ["string"],
-    "yearsExperience": "number"
+    "name": "John Doe",
+    "experience": "Software Engineer at Tech Corp",
+    "education": "Bachelor of Science in Computer Science",
+    "skills": "JavaScript, Python, React",
+    "activities": ["Volunteer work", "Community organizer"],
+    "yearsExperience": 3
   }
 }
 ```
 
-## Development
+## 🎯 Usage
 
-### Project Structure
-```
-hr-cv-evaluator/
-├── app/
-│   ├── api/analyze-cv/     # CV analysis API
-│   ├── analysis/           # Analysis results page
-│   ├── comparison/         # CV comparison page
-│   └── page.tsx           # Home page
-├── components/
-│   ├── ui/                # shadcn/ui components
-│   ├── radar-chart.tsx    # Radar chart component
-│   └── bar-chart.tsx      # Bar chart component
-├── lib/
-│   └── utils.ts           # Utility functions
-└── public/                # Static assets
-```
+1. **Upload CV**: Drag and drop or select a CV file (PDF/DOC/DOCX)
+2. **AI Analysis**: The system automatically analyzes the CV using AI
+3. **View Results**: See scores, charts, and professional analysis
+4. **Compare Candidates**: Upload multiple CVs for comparison
+5. **Export Reports**: Use the analysis for HR documentation
 
-### Key Components
-- **HomePage**: File upload and analysis initiation
-- **AnalysisPage**: Detailed results display
-- **ComparisonPage**: Multi-CV comparison dashboard
-- **RadarChart**: Visual metric representation
-- **BarChart**: Score breakdown visualization
+## 🔄 Fallback System
 
-## Contributing
+When AI analysis is unavailable (no API key, rate limits, etc.), the system automatically falls back to keyword-based scoring, ensuring the application always works.
+
+## 🚀 Deployment
+
+### Vercel (Recommended)
+1. Connect your GitHub repository to Vercel
+2. Add environment variables in Vercel dashboard
+3. Deploy automatically on push
+
+### Other Platforms
+The app can be deployed to any platform that supports Next.js:
+- Netlify
+- Railway
+- DigitalOcean App Platform
+- AWS Amplify
+
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## License
+## 📝 License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Support
+## 🙏 Acknowledgments
 
-For support or questions, please open an issue in the repository or contact the development team.
+- Built with [Next.js](https://nextjs.org/)
+- UI components from [shadcn/ui](https://ui.shadcn.com/)
+- Charts powered by [Recharts](https://recharts.org/)
+- AI analysis by [Mistral AI](https://mistral.ai/)
+
+## 📞 Support
+
+For support, please open an issue in the GitHub repository or contact the development team.
 
 ---
 
-**Note**: This application requires a valid Deepseek API key to function. The AI analysis provides professional HR-style evaluations suitable for candidate assessment and hiring decisions. 
+**GISELLE** - Empowering HR professionals with AI-driven candidate evaluation. 
