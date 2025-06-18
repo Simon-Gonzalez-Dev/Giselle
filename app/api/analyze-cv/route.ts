@@ -1,6 +1,7 @@
 /// <reference types="node" />
 
 import { Mistral } from '@mistralai/mistralai';
+import { NextRequest } from 'next/server'
 
 // CV Analysis API using Mistral AI
 const SCORING_RUBRICS = {
@@ -110,7 +111,8 @@ async function extractCandidateInfo(fileContent: string) {
     ? fileContent.trim().replace(/\s+/g, ' ')
     : JSON.stringify(fileContent).trim();
 
-  const prompt = `Extract the following information from this CV/resume in JSON format:
+  const prompt = `Extract the following information from this CV/resume and return ONLY a valid JSON object:
+
 {
   "name": "Full name of the candidate",
   "experience": "Most recent job title and company",
@@ -123,7 +125,7 @@ async function extractCandidateInfo(fileContent: string) {
 CV Content:
 ${cleanContent}
 
-Return only the JSON object, no additional text.`
+IMPORTANT: Return ONLY the JSON object, no additional text, explanations, or formatting.`
 
   const response = await callMistralAPI(prompt);
   
@@ -166,18 +168,22 @@ Candidate Background:
 - Skills: ${candidateInfo.skills}
 - Activities: ${candidateInfo.activities.join(', ')}
 
-Provide a detailed analysis and then give a score from 0-100. Format your response as:
-Analysis: [Your detailed analysis]
-Score: [Number between 0-100]`
+IMPORTANT: You must provide your response in exactly this format:
+Analysis: [Your detailed analysis of the candidate's ${metric}]
+Score: [A number between 0-100]
+
+The Score line must contain only a number between 0 and 100.`
 
   const response = await callMistralAPI(prompt);
   
+  // Extract score from response
   const scoreMatch = response.match(/Score:\s*(\d+)/i)
   if (scoreMatch) {
     return Math.max(0, Math.min(100, parseInt(scoreMatch[1])))
   }
   
-  throw new Error(`Failed to extract score from AI response for ${metric}`);
+  // If no score found, throw an error
+  throw new Error(`Mistral AI did not provide a score for ${metric}. Response: ${response}`)
 }
 
 async function generateHRStyleAnalysis(scores: Array<{ metric: string; score: number }>, averageScore: number, candidateInfo: any): Promise<string> {
@@ -208,7 +214,7 @@ Write a formal, professional analysis suitable for HR documentation. Include:
 4. Cultural fit considerations
 5. Final recommendation
 
-Use formal HR language and maintain a professional tone throughout.`
+Use formal HR language and maintain a professional tone throughout. Provide a comprehensive analysis that would be suitable for HR documentation.`
 
   return await callMistralAPI(prompt);
 }

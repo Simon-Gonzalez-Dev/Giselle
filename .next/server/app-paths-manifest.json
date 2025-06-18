@@ -1,6 +1,5 @@
 {
   "/api/analyze-cv/route": "app/api/analyze-cv/route.js",
-  "/analysis/page": "app/analysis/page.js",
   "/page": "app/page.js",
-  "/comparison/page": "app/comparison/page.js"
+  "/analysis/page": "app/analysis/page.js"
 }

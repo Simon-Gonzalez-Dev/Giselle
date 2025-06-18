@@ -58,53 +58,81 @@ export default function HomePage() {
     const selectedFile = e.target.files?.[0]
     if (selectedFile) {
       const validTypes = [
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/pdf"
       ]
       if (validTypes.includes(selectedFile.type)) {
         setFile(selectedFile)
       } else {
-        alert("Please upload a PDF or Word document (.pdf, .doc, .docx)")
+        alert("Please upload a PDF document (.pdf)")
       }
     }
   }
 
-  const extractTextFromFile = async (file: File): Promise<string> => {
+  const extractTextFromPDF = async (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      
-      reader.onload = (e) => {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
         try {
-          const content = e.target?.result as string
+          const arrayBuffer = e.target?.result as ArrayBuffer;
+          const uint8Array = new Uint8Array(arrayBuffer);
           
-          // For now, we'll use a simple text extraction
-          // In a real implementation, you'd want to use libraries like pdf-parse for PDFs
-          // and mammoth for Word documents
+          // Simple text extraction from PDF using regex patterns
+          const textDecoder = new TextDecoder('utf-8');
+          const pdfText = textDecoder.decode(uint8Array);
           
-          if (file.type === "application/pdf") {
-            // For PDF files, we'll extract basic text
-            // This is a simplified approach - in production you'd use pdf-parse
-            resolve("PDF content extracted - " + file.name)
+          // Multiple regex patterns to extract text from different PDF formats
+          const textPatterns = [
+            /\(\(([^)]+)\)\)/g,  // Pattern 1: Double parentheses
+            /\(([^)]+)\)/g,      // Pattern 2: Single parentheses
+            /\[([^\]]+)\]/g,     // Pattern 3: Square brackets
+            /BT\s*([^E]+)ET/g,   // Pattern 4: PDF text objects
+            /Td\s*\(([^)]+)\)/g, // Pattern 5: Text positioning
+          ];
+          
+          let extractedText = '';
+          
+          for (const pattern of textPatterns) {
+            const matches = pdfText.match(pattern) || [];
+            if (matches.length > 0) {
+              const patternText = matches
+                .map(match => match.replace(/[\(\)\[\]]/g, ''))
+                .join(' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+              
+              if (patternText.length > extractedText.length) {
+                extractedText = patternText;
+              }
+            }
+          }
+          
+          if (extractedText.length < 10) {
+            // Fallback: try to extract any readable text
+            const fallbackText = pdfText
+              .replace(/[^\x20-\x7E\n\r\t]/g, '') // Remove non-printable characters
+              .replace(/\s+/g, ' ')
+              .trim();
+            
+            if (fallbackText.length > 10) {
+              resolve(fallbackText);
+            } else {
+              reject(new Error('Could not extract text from PDF. Please ensure the PDF contains selectable text.'));
+            }
           } else {
-            // For Word documents, we'll extract basic text
-            // This is a simplified approach - in production you'd use mammoth
-            resolve("Word document content extracted - " + file.name)
+            resolve(extractedText);
           }
         } catch (error) {
-          reject(error)
+          reject(new Error('Failed to read PDF file. Please try again.'));
         }
-      }
+      };
       
-      reader.onerror = () => reject(new Error('Failed to read file'))
+      reader.onerror = () => {
+        reject(new Error('Failed to read file. Please try again.'));
+      };
       
-      if (file.type === "application/pdf") {
-        reader.readAsArrayBuffer(file)
-      } else {
-        reader.readAsText(file)
-      }
-    })
-  }
+      reader.readAsArrayBuffer(file);
+    });
+  };
 
   const handleAnalyze = async () => {
     if (!file) return
@@ -112,10 +140,10 @@ export default function HomePage() {
     setIsAnalyzing(true)
 
     try {
-      // Extract text content from the file
-      const fileContent = await extractTextFromFile(file)
+      // Extract text from PDF
+      const extractedText = await extractTextFromPDF(file);
       
-      // Call the real CV analysis API
+      // Call the CV analysis API
       const response = await fetch('/api/analyze-cv', {
         method: 'POST',
         headers: {
@@ -123,7 +151,7 @@ export default function HomePage() {
         },
         body: JSON.stringify({
           fileName: file.name,
-          fileContent: fileContent
+          fileContent: extractedText
         })
       })
 
@@ -168,7 +196,7 @@ export default function HomePage() {
                 <Upload className="h-6 w-6" />
                 Upload CV for Analysis
               </CardTitle>
-              <CardDescription>Upload PDF or Word documents for comprehensive professional assessment</CardDescription>
+              <CardDescription>Upload PDF documents for comprehensive professional assessment</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
@@ -176,11 +204,11 @@ export default function HomePage() {
                 <Input
                   id="cv-upload"
                   type="file"
-                  accept=".pdf,.doc,.docx"
+                  accept=".pdf"
                   onChange={handleFileChange}
                   className="cursor-pointer"
                 />
-                <p className="text-sm text-slate-500">Supported formats: PDF, DOC, DOCX (Max 10MB)</p>
+                <p className="text-sm text-slate-500">Supported format: PDF (Max 10MB)</p>
               </div>
 
               {file && (
