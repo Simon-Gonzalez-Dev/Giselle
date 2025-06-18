@@ -52,19 +52,30 @@ const SCORING_RUBRICS = {
 export default function HomePage() {
   const [file, setFile] = useState<File | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
+    setError(null) // Clear any previous errors
+    
     if (selectedFile) {
-      const validTypes = [
-        "application/pdf"
-      ]
-      if (validTypes.includes(selectedFile.type)) {
-        setFile(selectedFile)
-      } else {
-        alert("Please upload a PDF document (.pdf)")
+      // Check file type
+      const validTypes = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
+      if (!validTypes.includes(selectedFile.type)) {
+        setError("Please upload a PDF (.pdf) or DOCX (.docx) document")
+        setFile(null)
+        return
       }
+      
+      // Check file size (10MB limit)
+      if (selectedFile.size > 10 * 1024 * 1024) {
+        setError("File size must be less than 10MB")
+        setFile(null)
+        return
+      }
+      
+      setFile(selectedFile)
     }
   }
 
@@ -72,9 +83,10 @@ export default function HomePage() {
     if (!file) return
 
     setIsAnalyzing(true)
+    setError(null)
 
     try {
-      // Convert file to base64 using FileReader API (more reliable)
+      // Convert file to base64 using FileReader API
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
@@ -83,7 +95,7 @@ export default function HomePage() {
             const base64Data = result.split(',')[1]; // Remove data URL prefix
             resolve(base64Data);
           } catch (error) {
-            reject(error);
+            reject(new Error('Failed to read file'));
           }
         };
         reader.onerror = () => reject(new Error('Failed to read file'));
@@ -93,7 +105,7 @@ export default function HomePage() {
       console.log('Sending PDF file to API for parsing...');
       console.log(`File size: ${file.size} bytes, Base64 length: ${base64.length}`);
       
-      // Call the CV analysis API with the raw PDF data
+      // Call the CV analysis API with the PDF data
       const response = await fetch('/api/analyze-cv', {
         method: 'POST',
         headers: {
@@ -117,12 +129,17 @@ export default function HomePage() {
       if (!response.ok) {
         const errorData = await response.json();
         console.error('API Error:', errorData);
-        throw new Error(`Failed to analyze CV: ${errorData.error || 'Unknown error'}`);
+        throw new Error(errorData.error || errorData.details || 'Failed to analyze CV');
       }
 
       const analysis = await response.json()
       
       console.log('Analysis received:', analysis);
+      
+      // Validate the analysis response
+      if (!analysis || !analysis.scores || !analysis.profile) {
+        throw new Error('Invalid analysis response from server');
+      }
       
       // Store the analysis data
       localStorage.setItem("currentAnalysis", JSON.stringify(analysis))
@@ -136,7 +153,7 @@ export default function HomePage() {
       router.push("/analysis")
     } catch (error) {
       console.error('Analysis failed:', error)
-      alert(`Failed to analyze CV: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setError(error instanceof Error ? error.message : 'Unknown error occurred')
       setIsAnalyzing(false)
     }
   }
@@ -167,22 +184,42 @@ export default function HomePage() {
                 <Input
                   id="cv-upload"
                   type="file"
-                  accept=".pdf"
+                  accept=".pdf,.docx"
                   onChange={handleFileChange}
                   className="cursor-pointer"
+                  disabled={isAnalyzing}
                 />
-                <p className="text-sm text-slate-500">Supported format: PDF (Max 10MB)</p>
+                <p className="text-sm text-slate-500">Supported formats: PDF, DOCX (Max 10MB)</p>
               </div>
+
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
+              )}
 
               {file && (
                 <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg">
                   <FileText className="h-5 w-5 text-slate-600" />
                   <span className="text-sm font-medium">{file.name}</span>
+                  <span className="text-xs text-slate-500">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
                 </div>
               )}
 
-              <Button onClick={handleAnalyze} disabled={!file || isAnalyzing} className="w-full" size="lg">
-                {isAnalyzing ? "Conducting Professional Assessment..." : "Begin Professional Assessment"}
+              <Button 
+                onClick={handleAnalyze} 
+                disabled={!file || isAnalyzing} 
+                className="w-full" 
+                size="lg"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Conducting Professional Assessment...
+                  </>
+                ) : (
+                  "Begin Professional Assessment"
+                )}
               </Button>
             </CardContent>
           </Card>

@@ -2,6 +2,12 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { Mistral } from '@mistralai/mistralai'
+import { createWorker } from 'tesseract.js'
+import { PDFDocument } from 'pdf-lib'
+import mammoth from 'mammoth'
+import * as fs from 'fs'
+import * as path from 'path'
+import * as os from 'os'
 
 // Define the CandidateInfo interface
 interface CandidateInfo {
@@ -115,7 +121,7 @@ async function callMistralAPI(prompt: string, retries: number = 3): Promise<stri
   throw new Error('All retry attempts failed');
 }
 
-async function extractTextFromPDF(base64Data: string): Promise<string> {
+async function extractTextFromFile(base64Data: string, fileName: string): Promise<string> {
   try {
     // Validate base64 data
     if (!base64Data || typeof base64Data !== 'string') {
@@ -129,86 +135,105 @@ async function extractTextFromPDF(base64Data: string): Promise<string> {
     
     // Convert base64 to buffer
     const buffer = Buffer.from(base64Data, 'base64');
-    console.log(`PDF buffer size: ${buffer.length} bytes`);
+    console.log(`File buffer size: ${buffer.length} bytes`);
     
-    // Convert buffer to string and extract readable text
-    const textDecoder = new TextDecoder('utf-8');
-    const rawText = textDecoder.decode(buffer);
+    // Determine file type from extension
+    const fileExtension = path.extname(fileName).toLowerCase();
     
-    console.log(`Raw text length: ${rawText.length} characters`);
-    console.log(`Raw text preview: ${rawText.substring(0, 200)}...`);
-    
-    // Extract text using regex patterns for PDF content
-    let extractedText = '';
-    
-    // Method 1: Extract text from parentheses (common in PDFs)
-    const parenMatches = rawText.match(/\(([^)]+)\)/g);
-    if (parenMatches && parenMatches.length > 0) {
-      const parenText = parenMatches
-        .map(match => match.replace(/[\(\)]/g, ''))
-        .join(' ')
-        .replace(/\s+/g, ' ')
-        .trim();
+    if (fileExtension === '.docx') {
+      // Handle DOCX files using mammoth
+      console.log('Processing DOCX file with mammoth...');
       
-      if (parenText.length > 50) {
-        extractedText = parenText;
-        console.log(`Extracted text from parentheses: ${extractedText.length} characters`);
-      }
-    }
-    
-    // Method 2: Extract readable words if parentheses method didn't work
-    if (!extractedText || extractedText.length < 50) {
-      const wordPattern = /[A-Za-z]{2,}/g;
-      const words = rawText.match(wordPattern);
-      if (words && words.length > 10) {
-        const wordText = words.join(' ');
-        if (wordText.length > 50) {
-          extractedText = wordText;
-          console.log(`Extracted text from words: ${extractedText.length} characters`);
+      try {
+        const result = await mammoth.extractRawText({ buffer });
+        const extractedText = result.value;
+        
+        console.log(`DOCX extracted text length: ${extractedText.length} characters`);
+        console.log(`DOCX text preview: ${extractedText.substring(0, 200)}...`);
+        
+        if (extractedText && extractedText.trim().length > 10) {
+          const cleanedText = extractedText
+            .replace(/\s+/g, ' ') // Normalize whitespace
+            .trim();
+          
+          return cleanedText;
+        } else {
+          throw new Error('Could not extract meaningful text from DOCX file');
         }
+      } catch (docxError) {
+        console.error('DOCX parsing error:', docxError);
+        throw new Error(`Failed to parse DOCX: ${docxError instanceof Error ? docxError.message : 'Unknown error'}`);
       }
-    }
-    
-    // Method 3: Clean up the raw text if other methods failed
-    if (!extractedText || extractedText.length < 50) {
-      const cleanText = rawText
-        .replace(/[^\x20-\x7E\n\r\t]/g, ' ') // Remove non-printable characters
-        .replace(/\s+/g, ' ') // Normalize whitespace
-        .trim();
       
-      if (cleanText.length > 50) {
-        extractedText = cleanText;
-        console.log(`Extracted text from cleanup: ${extractedText.length} characters`);
+    } else if (fileExtension === '.pdf') {
+      // Handle PDF files (fallback to current method)
+      console.log('Processing PDF file...');
+      
+      try {
+        const pdfDoc = await PDFDocument.load(buffer);
+        const pages = pdfDoc.getPages();
+        console.log(`PDF has ${pages.length} pages`);
+        
+        // Try to extract any readable text from the PDF buffer
+        const pdfText = buffer.toString('utf8');
+        
+        // Look for text content in PDF structure
+        const textMatches = pdfText.match(/\([^)]{3,}\)/g);
+        if (textMatches && textMatches.length > 20) {
+          // This might be a text-based PDF, try to extract meaningful content
+          const extractedText = textMatches
+            .map(match => match.slice(1, -1)) // Remove parentheses
+            .filter(text => text.length > 2 && /[a-zA-Z]/.test(text)) // Filter meaningful text
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          
+          if (extractedText.length > 100) {
+            console.log(`PDF extracted text length: ${extractedText.length} characters`);
+            console.log(`PDF text preview: ${extractedText.substring(0, 200)}...`);
+            return extractedText;
+          }
+        }
+        
+        // If text extraction failed, provide a meaningful error
+        throw new Error('Text-based PDF extraction failed. Please convert to DOCX format for better results.');
+        
+      } catch (pdfError) {
+        console.log('PDF-lib extraction failed:', pdfError);
+        throw new Error('PDF processing failed. Please convert to DOCX format for better results.');
       }
+      
+    } else {
+      throw new Error(`Unsupported file format: ${fileExtension}. Please upload a DOCX or PDF file.`);
     }
     
-    // Validate that we got meaningful text
-    if (!extractedText || extractedText.length < 10) {
-      throw new Error('Could not extract meaningful text content from PDF');
-    }
-    
-    console.log(`Final extracted text preview: ${extractedText.substring(0, 200)}...`);
-    return extractedText;
   } catch (error) {
-    console.error('PDF parsing error:', error);
-    throw new Error(`Failed to parse PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error('File parsing error:', error);
+    throw new Error(`Failed to parse file: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
-async function analyzeCV(fileName: string, fileContent: string, isBase64: boolean = false) {
+async function analyzeCV(fileName: string, cvText: string, isBase64: boolean = false) {
   try {
     console.log(`Processing CV analysis for: ${fileName}`);
-    console.log(`Received content length: ${fileContent.length} characters`);
+    console.log(`Received content length: ${cvText.length} characters`);
     console.log(`Is base64: ${isBase64}`);
-    console.log(`Base64 content preview: ${fileContent.substring(0, 100)}...`);
     
-    // Convert PDF to string
-    const cvText = await extractTextFromPDF(fileContent);
-    console.log(`Analyzing CV: ${fileName} (${cvText.length} characters)`);
-    console.log(`CV content preview: ${cvText.substring(0, 200)}...`);
+    let extractedText = cvText;
+    
+    // If it's base64 data, extract text from PDF
+    if (isBase64) {
+      console.log(`Base64 content preview: ${cvText.substring(0, 100)}...`);
+      extractedText = await extractTextFromFile(cvText, fileName);
+    } else {
+      console.log(`Text content preview: ${cvText.substring(0, 200)}...`);
+    }
+    
+    console.log(`Analyzing CV: ${fileName} (${extractedText.length} characters)`);
+    console.log(`CV content preview: ${extractedText.substring(0, 200)}...`);
     
     // Limit content to avoid token limits
-    const limitedText = cvText.substring(0, 15000);
+    const limitedText = extractedText.substring(0, 15000);
     
     // Single Mistral call to analyze everything
     const prompt = `Analyze this CV and provide a comprehensive evaluation. Return ONLY a JSON object with this exact structure:
@@ -267,7 +292,14 @@ Evaluate each metric on a scale of 0-100 based on the CV content. If information
       uploadDate: new Date().toISOString(),
       scores: result.scores || [],
       averageScore: result.averageScore || 0,
-      analysis: result.analysis || 'Analysis not available'
+      analysis: result.analysis || 'Analysis not available',
+      profile: {
+        experience: result.candidateInfo?.experience || 'Not specified',
+        education: result.candidateInfo?.education || 'Not specified',
+        skills: result.candidateInfo?.skills || 'Not specified',
+        activities: result.candidateInfo?.activities || [],
+        yearsExperience: result.candidateInfo?.yearsExperience || 0
+      }
     };
     
     console.log('CV analysis completed:', analysis);
@@ -282,17 +314,22 @@ Evaluate each metric on a scale of 0-100 based on the CV content. If information
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { fileName, fileContent, isBase64 } = body;
+    const { fileName, cvText, fileContent, isBase64 } = body;
+
+    // Handle both old and new API formats
+    const content = cvText || fileContent;
+    const isBase64Content = isBase64 !== undefined ? isBase64 : !!fileContent;
 
     // Validate required fields
-    if (!fileName || !fileContent) {
+    if (!fileName || !content) {
       return new Response(
         JSON.stringify({ 
           error: 'File name and content are required',
           received: { 
             hasFileName: !!fileName, 
-            hasFileContent: !!fileContent,
-            fileContentType: typeof fileContent 
+            hasContent: !!content,
+            contentType: typeof content,
+            isBase64: isBase64Content
           }
         }),
         { 
@@ -303,16 +340,16 @@ export async function POST(request: Request) {
     }
     
     console.log(`Processing CV analysis for: ${fileName}`);
-    console.log(`Received content length: ${fileContent.length} characters`);
-    console.log(`Is base64: ${isBase64}`);
+    console.log(`Received content length: ${content.length} characters`);
+    console.log(`Is base64: ${isBase64Content}`);
     
-    if (isBase64) {
-      console.log(`Base64 content preview: ${fileContent.substring(0, 100)}...`);
+    if (isBase64Content) {
+      console.log(`Base64 content preview: ${content.substring(0, 100)}...`);
     } else {
-      console.log(`Text content preview: ${fileContent.substring(0, 500)}...`);
+      console.log(`Text content preview: ${content.substring(0, 500)}...`);
     }
     
-    const analysis = await analyzeCV(fileName, fileContent, isBase64);
+    const analysis = await analyzeCV(fileName, content, isBase64Content);
     
     return new Response(
       JSON.stringify(analysis),
@@ -334,4 +371,4 @@ export async function POST(request: Request) {
       }
     )
   }
-} 
+}

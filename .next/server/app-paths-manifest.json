@@ -1,5 +1,4 @@
 {
   "/api/analyze-cv/route": "app/api/analyze-cv/route.js",
-  "/page": "app/page.js",
-  "/analysis/page": "app/analysis/page.js"
+  "/page": "app/page.js"
 }
