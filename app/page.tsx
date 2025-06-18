@@ -60,10 +60,9 @@ export default function HomePage() {
     setError(null) // Clear any previous errors
     
     if (selectedFile) {
-      // Check file type
-      const validTypes = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
-      if (!validTypes.includes(selectedFile.type)) {
-        setError("Please upload a PDF (.pdf) or DOCX (.docx) document")
+      // Check file type - only DOCX
+      if (selectedFile.type !== "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+        setError("Please upload a DOCX document (.docx)")
         setFile(null)
         return
       }
@@ -184,12 +183,12 @@ export default function HomePage() {
                 <Input
                   id="cv-upload"
                   type="file"
-                  accept=".pdf,.docx"
+                  accept=".docx"
                   onChange={handleFileChange}
                   className="cursor-pointer"
                   disabled={isAnalyzing}
                 />
-                <p className="text-sm text-slate-500">Supported formats: PDF, DOCX (Max 10MB)</p>
+                <p className="text-sm text-slate-500">Supported format: DOCX (Max 10MB)</p>
               </div>
 
               {error && (

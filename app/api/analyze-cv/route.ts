@@ -165,46 +165,8 @@ async function extractTextFromFile(base64Data: string, fileName: string): Promis
         throw new Error(`Failed to parse DOCX: ${docxError instanceof Error ? docxError.message : 'Unknown error'}`);
       }
       
-    } else if (fileExtension === '.pdf') {
-      // Handle PDF files (fallback to current method)
-      console.log('Processing PDF file...');
-      
-      try {
-        const pdfDoc = await PDFDocument.load(buffer);
-        const pages = pdfDoc.getPages();
-        console.log(`PDF has ${pages.length} pages`);
-        
-        // Try to extract any readable text from the PDF buffer
-        const pdfText = buffer.toString('utf8');
-        
-        // Look for text content in PDF structure
-        const textMatches = pdfText.match(/\([^)]{3,}\)/g);
-        if (textMatches && textMatches.length > 20) {
-          // This might be a text-based PDF, try to extract meaningful content
-          const extractedText = textMatches
-            .map(match => match.slice(1, -1)) // Remove parentheses
-            .filter(text => text.length > 2 && /[a-zA-Z]/.test(text)) // Filter meaningful text
-            .join(' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-          
-          if (extractedText.length > 100) {
-            console.log(`PDF extracted text length: ${extractedText.length} characters`);
-            console.log(`PDF text preview: ${extractedText.substring(0, 200)}...`);
-            return extractedText;
-          }
-        }
-        
-        // If text extraction failed, provide a meaningful error
-        throw new Error('Text-based PDF extraction failed. Please convert to DOCX format for better results.');
-        
-      } catch (pdfError) {
-        console.log('PDF-lib extraction failed:', pdfError);
-        throw new Error('PDF processing failed. Please convert to DOCX format for better results.');
-      }
-      
     } else {
-      throw new Error(`Unsupported file format: ${fileExtension}. Please upload a DOCX or PDF file.`);
+      throw new Error(`Unsupported file format: ${fileExtension}. Please upload a DOCX file.`);
     }
     
   } catch (error) {
@@ -236,7 +198,7 @@ async function analyzeCV(fileName: string, cvText: string, isBase64: boolean = f
     const limitedText = extractedText.substring(0, 15000);
     
     // Single Mistral call to analyze everything
-    const prompt = `Analyze this CV and provide a comprehensive evaluation. Return ONLY a JSON object with this exact structure:
+    const prompt = `Analyze this CV and provide a comprehensive evaluation. Return ONLY a valid JSON object with this exact structure:
 
 {
   "candidateInfo": {
@@ -245,25 +207,25 @@ async function analyzeCV(fileName: string, cvText: string, isBase64: boolean = f
     "education": "Educational background",
     "skills": "Technical and soft skills",
     "activities": ["activity1", "activity2"],
-    "yearsExperience": number
+    "yearsExperience": 0
   },
   "scores": [
-    {"metric": "Interpersonal Skills", "score": number},
-    {"metric": "Cognitive Abilities", "score": number},
-    {"metric": "Emotional Intelligence", "score": number},
-    {"metric": "Professional Qualities", "score": number},
-    {"metric": "Cultural Fit", "score": number},
-    {"metric": "Technical Aptitude", "score": number},
-    {"metric": "Life Experience", "score": number}
+    {"metric": "Interpersonal Skills", "score": 0},
+    {"metric": "Cognitive Abilities", "score": 0},
+    {"metric": "Emotional Intelligence", "score": 0},
+    {"metric": "Professional Qualities", "score": 0},
+    {"metric": "Cultural Fit", "score": 0},
+    {"metric": "Technical Aptitude", "score": 0},
+    {"metric": "Life Experience", "score": 0}
   ],
-  "averageScore": number,
+  "averageScore": 0,
   "analysis": "Detailed HR-style analysis of the candidate's strengths and areas for improvement"
 }
 
 CV Content:
 ${limitedText}
 
-Evaluate each metric on a scale of 0-100 based on the CV content. If information is not found, use "Not specified" for text fields, [] for arrays, and 0 for numbers.`;
+Evaluate each metric on a scale of 0-100 based on the CV content. If information is not found, use "Not specified" for text fields, [] for arrays, and 0 for numbers. Ensure all JSON values are properly quoted strings or numbers.`;
 
     console.log('🔑 Sending CV to Mistral for analysis...');
     
@@ -273,14 +235,25 @@ Evaluate each metric on a scale of 0-100 based on the CV content. If information
     // Parse the response
     let result;
     try {
+      // Try to find JSON in the response
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        result = JSON.parse(jsonMatch[0]);
+        let jsonString = jsonMatch[0];
+        
+        // Fix common JSON issues
+        jsonString = jsonString
+          .replace(/(\w+):\s*([^",\{\}\[\]]+)(?=\s*[,}\]])/g, '$1: "$2"') // Quote unquoted string values
+          .replace(/:\s*Not specified/g, ': "Not specified"') // Quote "Not specified" values
+          .replace(/:\s*(\d+\.\d+)/g, ': $1') // Keep numbers as numbers
+          .replace(/:\s*(\d+)/g, ': $1'); // Keep integers as numbers
+        
+        result = JSON.parse(jsonString);
       } else {
         throw new Error('No JSON found in AI response');
       }
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
+      console.error('Raw response:', response);
       throw new Error('Failed to parse AI analysis response');
     }
     
