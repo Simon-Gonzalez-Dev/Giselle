@@ -68,82 +68,32 @@ export default function HomePage() {
     }
   }
 
-  const extractTextFromPDF = async (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const arrayBuffer = e.target?.result as ArrayBuffer;
-          const uint8Array = new Uint8Array(arrayBuffer);
-          
-          // Simple text extraction from PDF using regex patterns
-          const textDecoder = new TextDecoder('utf-8');
-          const pdfText = textDecoder.decode(uint8Array);
-          
-          // Multiple regex patterns to extract text from different PDF formats
-          const textPatterns = [
-            /\(\(([^)]+)\)\)/g,  // Pattern 1: Double parentheses
-            /\(([^)]+)\)/g,      // Pattern 2: Single parentheses
-            /\[([^\]]+)\]/g,     // Pattern 3: Square brackets
-            /BT\s*([^E]+)ET/g,   // Pattern 4: PDF text objects
-            /Td\s*\(([^)]+)\)/g, // Pattern 5: Text positioning
-          ];
-          
-          let extractedText = '';
-          
-          for (const pattern of textPatterns) {
-            const matches = pdfText.match(pattern) || [];
-            if (matches.length > 0) {
-              const patternText = matches
-                .map(match => match.replace(/[\(\)\[\]]/g, ''))
-                .join(' ')
-                .replace(/\s+/g, ' ')
-                .trim();
-              
-              if (patternText.length > extractedText.length) {
-                extractedText = patternText;
-              }
-            }
-          }
-          
-          if (extractedText.length < 10) {
-            // Fallback: try to extract any readable text
-            const fallbackText = pdfText
-              .replace(/[^\x20-\x7E\n\r\t]/g, '') // Remove non-printable characters
-              .replace(/\s+/g, ' ')
-              .trim();
-            
-            if (fallbackText.length > 10) {
-              resolve(fallbackText);
-            } else {
-              reject(new Error('Could not extract text from PDF. Please ensure the PDF contains selectable text.'));
-            }
-          } else {
-            resolve(extractedText);
-          }
-        } catch (error) {
-          reject(new Error('Failed to read PDF file. Please try again.'));
-        }
-      };
-      
-      reader.onerror = () => {
-        reject(new Error('Failed to read file. Please try again.'));
-      };
-      
-      reader.readAsArrayBuffer(file);
-    });
-  };
-
   const handleAnalyze = async () => {
     if (!file) return
 
     setIsAnalyzing(true)
 
     try {
-      // Extract text from PDF
-      const extractedText = await extractTextFromPDF(file);
+      // Convert file to base64 using FileReader API (more reliable)
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const result = reader.result as string;
+            const base64Data = result.split(',')[1]; // Remove data URL prefix
+            resolve(base64Data);
+          } catch (error) {
+            reject(error);
+          }
+        };
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
       
-      // Call the CV analysis API
+      console.log('Sending PDF file to API for parsing...');
+      console.log(`File size: ${file.size} bytes, Base64 length: ${base64.length}`);
+      
+      // Call the CV analysis API with the raw PDF data
       const response = await fetch('/api/analyze-cv', {
         method: 'POST',
         headers: {
@@ -151,15 +101,28 @@ export default function HomePage() {
         },
         body: JSON.stringify({
           fileName: file.name,
-          fileContent: extractedText
+          fileContent: base64,
+          isBase64: true
         })
       })
 
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error('Server returned an invalid response. Please try again.');
+      }
+
       if (!response.ok) {
-        throw new Error('Failed to analyze CV')
+        const errorData = await response.json();
+        console.error('API Error:', errorData);
+        throw new Error(`Failed to analyze CV: ${errorData.error || 'Unknown error'}`);
       }
 
       const analysis = await response.json()
+      
+      console.log('Analysis received:', analysis);
       
       // Store the analysis data
       localStorage.setItem("currentAnalysis", JSON.stringify(analysis))
@@ -173,7 +136,7 @@ export default function HomePage() {
       router.push("/analysis")
     } catch (error) {
       console.error('Analysis failed:', error)
-      alert('Failed to analyze CV. Please try again.')
+      alert(`Failed to analyze CV: ${error instanceof Error ? error.message : 'Unknown error'}`)
       setIsAnalyzing(false)
     }
   }

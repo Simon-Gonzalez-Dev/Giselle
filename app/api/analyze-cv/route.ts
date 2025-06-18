@@ -1,7 +1,17 @@
 /// <reference types="node" />
 
-import { Mistral } from '@mistralai/mistralai';
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { Mistral } from '@mistralai/mistralai'
+
+// Define the CandidateInfo interface
+interface CandidateInfo {
+  name: string
+  experience: string
+  education: string
+  skills: string
+  activities: string[]
+  yearsExperience: number
+}
 
 // CV Analysis API using Mistral AI
 const SCORING_RUBRICS = {
@@ -105,163 +115,164 @@ async function callMistralAPI(prompt: string, retries: number = 3): Promise<stri
   throw new Error('All retry attempts failed');
 }
 
-async function extractCandidateInfo(fileContent: string) {
-  // Clean and stringify the CV content
-  const cleanContent = typeof fileContent === 'string' 
-    ? fileContent.trim().replace(/\s+/g, ' ')
-    : JSON.stringify(fileContent).trim();
+async function extractTextFromPDF(base64Data: string): Promise<string> {
+  try {
+    // Validate base64 data
+    if (!base64Data || typeof base64Data !== 'string') {
+      throw new Error('Invalid base64 data provided');
+    }
+    
+    // Check if it looks like base64
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64Data)) {
+      throw new Error('Invalid base64 format');
+    }
+    
+    // Convert base64 to buffer
+    const buffer = Buffer.from(base64Data, 'base64');
+    console.log(`PDF buffer size: ${buffer.length} bytes`);
+    
+    // Convert buffer to string and extract readable text
+    const textDecoder = new TextDecoder('utf-8');
+    const rawText = textDecoder.decode(buffer);
+    
+    console.log(`Raw text length: ${rawText.length} characters`);
+    console.log(`Raw text preview: ${rawText.substring(0, 200)}...`);
+    
+    // Extract text using regex patterns for PDF content
+    let extractedText = '';
+    
+    // Method 1: Extract text from parentheses (common in PDFs)
+    const parenMatches = rawText.match(/\(([^)]+)\)/g);
+    if (parenMatches && parenMatches.length > 0) {
+      const parenText = parenMatches
+        .map(match => match.replace(/[\(\)]/g, ''))
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      if (parenText.length > 50) {
+        extractedText = parenText;
+        console.log(`Extracted text from parentheses: ${extractedText.length} characters`);
+      }
+    }
+    
+    // Method 2: Extract readable words if parentheses method didn't work
+    if (!extractedText || extractedText.length < 50) {
+      const wordPattern = /[A-Za-z]{2,}/g;
+      const words = rawText.match(wordPattern);
+      if (words && words.length > 10) {
+        const wordText = words.join(' ');
+        if (wordText.length > 50) {
+          extractedText = wordText;
+          console.log(`Extracted text from words: ${extractedText.length} characters`);
+        }
+      }
+    }
+    
+    // Method 3: Clean up the raw text if other methods failed
+    if (!extractedText || extractedText.length < 50) {
+      const cleanText = rawText
+        .replace(/[^\x20-\x7E\n\r\t]/g, ' ') // Remove non-printable characters
+        .replace(/\s+/g, ' ') // Normalize whitespace
+        .trim();
+      
+      if (cleanText.length > 50) {
+        extractedText = cleanText;
+        console.log(`Extracted text from cleanup: ${extractedText.length} characters`);
+      }
+    }
+    
+    // Validate that we got meaningful text
+    if (!extractedText || extractedText.length < 10) {
+      throw new Error('Could not extract meaningful text content from PDF');
+    }
+    
+    console.log(`Final extracted text preview: ${extractedText.substring(0, 200)}...`);
+    return extractedText;
+  } catch (error) {
+    console.error('PDF parsing error:', error);
+    throw new Error(`Failed to parse PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
 
-  const prompt = `Extract the following information from this CV/resume and return ONLY a valid JSON object:
+async function analyzeCV(fileName: string, fileContent: string, isBase64: boolean = false) {
+  try {
+    console.log(`Processing CV analysis for: ${fileName}`);
+    console.log(`Received content length: ${fileContent.length} characters`);
+    console.log(`Is base64: ${isBase64}`);
+    console.log(`Base64 content preview: ${fileContent.substring(0, 100)}...`);
+    
+    // Convert PDF to string
+    const cvText = await extractTextFromPDF(fileContent);
+    console.log(`Analyzing CV: ${fileName} (${cvText.length} characters)`);
+    console.log(`CV content preview: ${cvText.substring(0, 200)}...`);
+    
+    // Limit content to avoid token limits
+    const limitedText = cvText.substring(0, 15000);
+    
+    // Single Mistral call to analyze everything
+    const prompt = `Analyze this CV and provide a comprehensive evaluation. Return ONLY a JSON object with this exact structure:
 
 {
-  "name": "Full name of the candidate",
-  "experience": "Most recent job title and company",
-  "education": "Highest degree and field of study",
-  "skills": "Key technical and professional skills (comma-separated)",
-  "activities": ["List of volunteer work, community involvement, or extracurricular activities"],
-  "yearsExperience": "Total years of professional experience (number)"
+  "candidateInfo": {
+    "name": "Full name of the candidate",
+    "experience": "Summary of work experience", 
+    "education": "Educational background",
+    "skills": "Technical and soft skills",
+    "activities": ["activity1", "activity2"],
+    "yearsExperience": number
+  },
+  "scores": [
+    {"metric": "Interpersonal Skills", "score": number},
+    {"metric": "Cognitive Abilities", "score": number},
+    {"metric": "Emotional Intelligence", "score": number},
+    {"metric": "Professional Qualities", "score": number},
+    {"metric": "Cultural Fit", "score": number},
+    {"metric": "Technical Aptitude", "score": number},
+    {"metric": "Life Experience", "score": number}
+  ],
+  "averageScore": number,
+  "analysis": "Detailed HR-style analysis of the candidate's strengths and areas for improvement"
 }
 
 CV Content:
-${cleanContent}
+${limitedText}
 
-IMPORTANT: Return ONLY the JSON object, no additional text, explanations, or formatting.`
+Evaluate each metric on a scale of 0-100 based on the CV content. If information is not found, use "Not specified" for text fields, [] for arrays, and 0 for numbers.`;
 
-  const response = await callMistralAPI(prompt);
-  
-  try {
-    const parsed = JSON.parse(response);
-    return {
-      name: parsed.name || "Unknown Candidate",
-      experience: parsed.experience || "No experience listed",
-      education: parsed.education || "No education listed",
-      skills: parsed.skills || "No skills listed",
-      activities: Array.isArray(parsed.activities) ? parsed.activities : [],
-      yearsExperience: parseInt(parsed.yearsExperience) || 0
-    }
-  } catch (error: any) {
-    throw new Error(`Failed to parse AI response for candidate info: ${error.message}`);
-  }
-}
-
-async function analyzeMetric(metric: string, fileContent: string, candidateInfo: any): Promise<number> {
-  const rubric = SCORING_RUBRICS[metric as keyof typeof SCORING_RUBRICS]
-  
-  // Clean and stringify the CV content
-  const cleanContent = typeof fileContent === 'string' 
-    ? fileContent.trim().replace(/\s+/g, ' ')
-    : JSON.stringify(fileContent).trim();
-  
-  const prompt = `Analyze this candidate's ${metric} based on their CV and provide a score from 0-100.
-
-Assessment Criteria for ${metric}:
-${rubric.criteria.map(c => `- ${c}`).join('\n')}
-
-Relevant Keywords: ${rubric.keywords.join(', ')}
-
-CV Content:
-${cleanContent}
-
-Candidate Background:
-- Experience: ${candidateInfo.experience}
-- Education: ${candidateInfo.education}
-- Skills: ${candidateInfo.skills}
-- Activities: ${candidateInfo.activities.join(', ')}
-
-IMPORTANT: You must provide your response in exactly this format:
-Analysis: [Your detailed analysis of the candidate's ${metric}]
-Score: [A number between 0-100]
-
-The Score line must contain only a number between 0 and 100.`
-
-  const response = await callMistralAPI(prompt);
-  
-  // Extract score from response
-  const scoreMatch = response.match(/Score:\s*(\d+)/i)
-  if (scoreMatch) {
-    return Math.max(0, Math.min(100, parseInt(scoreMatch[1])))
-  }
-  
-  // If no score found, throw an error
-  throw new Error(`Mistral AI did not provide a score for ${metric}. Response: ${response}`)
-}
-
-async function generateHRStyleAnalysis(scores: Array<{ metric: string; score: number }>, averageScore: number, candidateInfo: any): Promise<string> {
-  const topMetric = scores.reduce((max, current) => (current.score > max.score ? current : max))
-  const bottomMetric = scores.reduce((min, current) => (current.score < min.score ? current : min))
-  
-  const prompt = `Write a professional HR-style analysis of this candidate based on their CV assessment.
-
-Candidate Profile:
-- Name: ${candidateInfo.name}
-- Experience: ${candidateInfo.experience}
-- Education: ${candidateInfo.education}
-- Skills: ${candidateInfo.skills}
-- Activities: ${candidateInfo.activities.join(', ')}
-
-Assessment Results:
-- Overall Average Score: ${averageScore}/100
-- Top Strength: ${topMetric.metric} (${topMetric.score}/100)
-- Development Area: ${bottomMetric.metric} (${bottomMetric.score}/100)
-
-Individual Scores:
-${scores.map(s => `- ${s.metric}: ${s.score}/100`).join('\n')}
-
-Write a formal, professional analysis suitable for HR documentation. Include:
-1. Overall performance assessment
-2. Key strengths and their business value
-3. Areas for development
-4. Cultural fit considerations
-5. Final recommendation
-
-Use formal HR language and maintain a professional tone throughout. Provide a comprehensive analysis that would be suitable for HR documentation.`
-
-  return await callMistralAPI(prompt);
-}
-
-async function analyzeCV(fileName: string, fileContent: string) {
-  try {
-    // Validate and clean file content
-    if (!fileContent || typeof fileContent !== 'string') {
-      throw new Error('Invalid file content provided');
+    console.log('🔑 Sending CV to Mistral for analysis...');
+    
+    const response = await callMistralAPI(prompt);
+    console.log('AI response:', response);
+    
+    // Parse the response
+    let result;
+    try {
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        result = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('No JSON found in AI response');
+      }
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', parseError);
+      throw new Error('Failed to parse AI analysis response');
     }
     
-    // Clean the content by removing excessive whitespace and normalizing
-    const cleanContent = fileContent
-      .trim()
-      .replace(/\s+/g, ' ')
-      .replace(/\n+/g, ' ')
-      .substring(0, 10000); // Limit content length to avoid API limits
-    
-    if (cleanContent.length < 10) {
-      throw new Error('File content is too short to analyze');
-    }
-    
-    console.log(`Analyzing CV: ${fileName} (${cleanContent.length} characters)`);
-    
-    const candidateInfo = await extractCandidateInfo(cleanContent)
-    
-    const scores = await Promise.all(
-      Object.keys(SCORING_RUBRICS).map(async (metric) => ({
-        metric,
-        score: await analyzeMetric(metric, cleanContent, candidateInfo)
-      }))
-    )
-
-    const averageScore = Math.round(scores.reduce((sum, s) => sum + s.score, 0) / scores.length)
-    
-    const analysis = await generateHRStyleAnalysis(scores, averageScore, candidateInfo)
-
-    return {
+    // Validate and structure the result
+    const analysis = {
       id: Date.now(),
-      fileName: fileName.replace(/\.[^/.]+$/, ""),
-      candidateName: candidateInfo.name,
+      fileName: fileName,
+      candidateName: result.candidateInfo?.name || 'Not specified',
       uploadDate: new Date().toISOString(),
-      scores,
-      averageScore,
-      analysis,
-      profile: candidateInfo
-    }
+      scores: result.scores || [],
+      averageScore: result.averageScore || 0,
+      analysis: result.analysis || 'Analysis not available'
+    };
+    
+    console.log('CV analysis completed:', analysis);
+    return analysis;
+    
   } catch (error) {
     console.error('CV Analysis failed:', error)
     throw new Error('Failed to analyze CV. Please try again.')
@@ -271,7 +282,7 @@ async function analyzeCV(fileName: string, fileContent: string) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { fileName, fileContent } = body;
+    const { fileName, fileContent, isBase64 } = body;
 
     // Validate required fields
     if (!fileName || !fileContent) {
@@ -290,24 +301,19 @@ export async function POST(request: Request) {
         }
       )
     }
-
-    // Ensure fileContent is a string
-    if (typeof fileContent !== 'string') {
-      return new Response(
-        JSON.stringify({ 
-          error: 'File content must be a string',
-          receivedType: typeof fileContent
-        }),
-        { 
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
+    
     console.log(`Processing CV analysis for: ${fileName}`);
-    const analysis = await analyzeCV(fileName, fileContent);
-
+    console.log(`Received content length: ${fileContent.length} characters`);
+    console.log(`Is base64: ${isBase64}`);
+    
+    if (isBase64) {
+      console.log(`Base64 content preview: ${fileContent.substring(0, 100)}...`);
+    } else {
+      console.log(`Text content preview: ${fileContent.substring(0, 500)}...`);
+    }
+    
+    const analysis = await analyzeCV(fileName, fileContent, isBase64);
+    
     return new Response(
       JSON.stringify(analysis),
       { 
