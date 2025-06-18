@@ -63,6 +63,12 @@ export default function ComparisonPage() {
     "Life Experience",
   ]
 
+  const handleDeleteCV = (id: number) => {
+    const updatedHistory = cvHistory.filter((cv) => cv.id !== id)
+    setCvHistory(updatedHistory)
+    localStorage.setItem("cvHistory", JSON.stringify(updatedHistory))
+  }
+
   if (cvHistory.length === 0) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -195,11 +201,14 @@ export default function ComparisonPage() {
                         <p className="text-sm text-slate-600">{cv.fileName}</p>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="flex items-center gap-2">
                       <p className="font-bold text-lg">{cv.averageScore}</p>
                       <Badge variant="secondary" className={`${getScoreColor(cv.averageScore)} text-white text-xs`}>
                         {getPerformanceLevel(cv.averageScore)}
                       </Badge>
+                      <Button size="sm" variant="destructive" onClick={() => handleDeleteCV(cv.id)}>
+                        Delete
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -297,6 +306,11 @@ export default function ComparisonPage() {
                           </td>
                         )
                       })}
+                      <td className="text-center p-2">
+                        <Button size="sm" variant="destructive" onClick={() => handleDeleteCV(cv.id)}>
+                          Delete
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
