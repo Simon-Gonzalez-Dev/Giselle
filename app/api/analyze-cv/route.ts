@@ -2,12 +2,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { Mistral } from '@mistralai/mistralai'
-import { createWorker } from 'tesseract.js'
-import { PDFDocument } from 'pdf-lib'
 import mammoth from 'mammoth'
-import * as fs from 'fs'
 import * as path from 'path'
-import * as os from 'os'
 
 // Define the CandidateInfo interface
 interface CandidateInfo {
@@ -183,7 +179,7 @@ async function analyzeCV(fileName: string, cvText: string, isBase64: boolean = f
     
     let extractedText = cvText;
     
-    // If it's base64 data, extract text from PDF
+    // If it's base64 data, extract text from file
     if (isBase64) {
       console.log(`Base64 content preview: ${cvText.substring(0, 100)}...`);
       extractedText = await extractTextFromFile(cvText, fileName);

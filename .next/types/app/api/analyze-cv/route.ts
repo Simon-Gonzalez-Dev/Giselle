@@ -1,4 +1,4 @@
-// File: /Users/simongonzalez/Cursor_projects/giselle/Giselle/app/api/analyze-cv/route.ts
+// File: /Users/simongonzalez/Cursor_projects/giselle/Giselle-demo/app/api/analyze-cv/route.ts
 import * as entry from '../../../../../app/api/analyze-cv/route.js'
 import type { NextRequest } from 'next/server.js'
 

@@ -101,10 +101,10 @@ export default function HomePage() {
         reader.readAsDataURL(file);
       });
       
-      console.log('Sending PDF file to API for parsing...');
+      console.log('Sending file to API for parsing...');
       console.log(`File size: ${file.size} bytes, Base64 length: ${base64.length}`);
       
-      // Call the CV analysis API with the PDF data
+      // Call the CV analysis API with the file data
       const response = await fetch('/api/analyze-cv', {
         method: 'POST',
         headers: {
@@ -175,7 +175,7 @@ export default function HomePage() {
                 <Upload className="h-6 w-6" />
                 Upload CV for Analysis
               </CardTitle>
-              <CardDescription>Upload PDF documents for comprehensive professional assessment</CardDescription>
+              <CardDescription>Upload DOCX documents for comprehensive professional assessment</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">

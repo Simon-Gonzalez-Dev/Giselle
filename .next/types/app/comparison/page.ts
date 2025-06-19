@@ -1,4 +1,4 @@
-// File: /Users/simongonzalez/Cursor_projects/giselle/Giselle/app/comparison/page.tsx
+// File: /Users/simongonzalez/Cursor_projects/giselle/Giselle-demo/app/comparison/page.tsx
 import * as entry from '../../../../app/comparison/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
