@@ -10,17 +10,23 @@ import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Filter, Mail, Calendar, MoreHorizontal, Eye, Download } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Search, Filter, Mail, Calendar, MoreHorizontal, Eye, Download, UserPlus, Plus } from "lucide-react"
 import { useState } from "react"
 import Link from "next/link"
 
-const candidates = [
+// Global candidates from all projects
+const allCandidates = [
   {
     id: 1,
     name: "Sarah Johnson",
     email: "sarah.johnson@email.com",
+    phone: "+1 (555) 123-4567",
     position: "Senior Developer",
-    score: 92,
+    project: "Senior Software Engineer",
+    projectId: "proj-001",
+    averageScore: 92,
     status: "Interview Scheduled",
     location: "San Francisco, CA",
     experience: "5 years",
@@ -32,8 +38,11 @@ const candidates = [
     id: 2,
     name: "Michael Chen",
     email: "michael.chen@email.com",
+    phone: "+1 (555) 234-5678",
     position: "Product Manager",
-    score: 88,
+    project: "Product Manager",
+    projectId: "proj-002",
+    averageScore: 88,
     status: "Phone Screen",
     location: "New York, NY",
     experience: "7 years",
@@ -45,8 +54,11 @@ const candidates = [
     id: 3,
     name: "Emily Rodriguez",
     email: "emily.rodriguez@email.com",
+    phone: "+1 (555) 345-6789",
     position: "UX Designer",
-    score: 85,
+    project: "UX Designer",
+    projectId: "proj-003",
+    averageScore: 85,
     status: "Applied",
     location: "Austin, TX",
     experience: "4 years",
@@ -58,8 +70,11 @@ const candidates = [
     id: 4,
     name: "David Kim",
     email: "david.kim@email.com",
+    phone: "+1 (555) 456-7890",
     position: "Data Analyst",
-    score: 79,
+    project: "Data Analyst",
+    projectId: "proj-004",
+    averageScore: 79,
     status: "Technical Review",
     location: "Seattle, WA",
     experience: "3 years",
@@ -71,8 +86,11 @@ const candidates = [
     id: 5,
     name: "Lisa Wang",
     email: "lisa.wang@email.com",
+    phone: "+1 (555) 567-8901",
     position: "Marketing Manager",
-    score: 91,
+    project: "Marketing Manager",
+    projectId: "proj-005",
+    averageScore: 91,
     status: "Offered",
     location: "Los Angeles, CA",
     experience: "6 years",
@@ -83,16 +101,31 @@ const candidates = [
 ]
 
 export default function CandidatesPage() {
+  const [candidates, setCandidates] = useState(allCandidates)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [projectFilter, setProjectFilter] = useState("all")
   const [selectedCandidates, setSelectedCandidates] = useState<number[]>([])
+  const [isAddCandidateOpen, setIsAddCandidateOpen] = useState(false)
+  const [newCandidate, setNewCandidate] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    position: "",
+    project: "",
+    location: "",
+    experience: "",
+    education: ""
+  })
 
   const filteredCandidates = candidates.filter((candidate) => {
     const matchesSearch =
       candidate.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      candidate.position.toLowerCase().includes(searchTerm.toLowerCase())
+      candidate.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      candidate.email.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === "all" || candidate.status === statusFilter
-    return matchesSearch && matchesStatus
+    const matchesProject = projectFilter === "all" || candidate.project === projectFilter
+    return matchesSearch && matchesStatus && matchesProject
   })
 
   const getStatusColor = (status: string) => {
@@ -116,19 +149,206 @@ export default function CandidatesPage() {
     }
   }
 
+  const handleAddCandidate = () => {
+    const candidate = {
+      id: Date.now(),
+      ...newCandidate,
+      projectId: `proj-${Math.floor(Math.random() * 1000)}`,
+      averageScore: Math.floor(Math.random() * 40) + 60,
+      status: "Applied",
+      interviewDate: null,
+      appliedDate: new Date().toISOString().split('T')[0],
+    }
+    setCandidates([...candidates, candidate])
+    setNewCandidate({
+      name: "",
+      email: "",
+      phone: "",
+      position: "",
+      project: "",
+      location: "",
+      experience: "",
+      education: ""
+    })
+    setIsAddCandidateOpen(false)
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedCandidates(filteredCandidates.map(c => c.id))
+    } else {
+      setSelectedCandidates([])
+    }
+  }
+
+  const uniqueProjects = [...new Set(candidates.map(c => c.project))]
+  const totalStats = {
+    totalCandidates: candidates.length,
+    averageScore: candidates.length > 0 ? candidates.reduce((sum, c) => sum + c.averageScore, 0) / candidates.length : 0,
+    interviewsScheduled: candidates.filter(c => c.status === "Interview Scheduled").length,
+    offersExtended: candidates.filter(c => c.status === "Offered").length
+  }
+
   return (
     <SidebarInset>
       <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-4" />
-        <h1 className="text-xl font-semibold">Candidates</h1>
+        <h1 className="text-xl font-semibold">All Candidates</h1>
       </header>
 
       <div className="flex-1 space-y-6 p-6 overflow-auto">
-        {/* Filters and Search */}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Candidates</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-2">{totalStats.totalCandidates}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Avg. Score</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-2">{totalStats.averageScore.toFixed(1)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Interviews Scheduled</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-2">{totalStats.interviewsScheduled}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Offers Extended</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-2">{totalStats.offersExtended}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters and Controls */}
         <Card>
           <CardHeader>
-            <CardTitle>Candidate Management</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Candidate Management</CardTitle>
+              <Dialog open={isAddCandidateOpen} onOpenChange={setIsAddCandidateOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Add Candidate
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Add New Candidate</DialogTitle>
+                    <DialogDescription>
+                      Manually add a candidate to the system
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Full Name</Label>
+                        <Input
+                          id="name"
+                          value={newCandidate.name}
+                          onChange={(e) => setNewCandidate({...newCandidate, name: e.target.value})}
+                          placeholder="John Doe"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={newCandidate.email}
+                          onChange={(e) => setNewCandidate({...newCandidate, email: e.target.value})}
+                          placeholder="john@example.com"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">Phone</Label>
+                        <Input
+                          id="phone"
+                          value={newCandidate.phone}
+                          onChange={(e) => setNewCandidate({...newCandidate, phone: e.target.value})}
+                          placeholder="+1 (555) 123-4567"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="position">Position Applied For</Label>
+                        <Input
+                          id="position"
+                          value={newCandidate.position}
+                          onChange={(e) => setNewCandidate({...newCandidate, position: e.target.value})}
+                          placeholder="Software Engineer"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="project">Project/Job Posting</Label>
+                        <Input
+                          id="project"
+                          value={newCandidate.project}
+                          onChange={(e) => setNewCandidate({...newCandidate, project: e.target.value})}
+                          placeholder="Senior Software Engineer"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="location">Location</Label>
+                        <Input
+                          id="location"
+                          value={newCandidate.location}
+                          onChange={(e) => setNewCandidate({...newCandidate, location: e.target.value})}
+                          placeholder="San Francisco, CA"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="experience">Experience</Label>
+                        <Input
+                          id="experience"
+                          value={newCandidate.experience}
+                          onChange={(e) => setNewCandidate({...newCandidate, experience: e.target.value})}
+                          placeholder="5 years"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="education">Education</Label>
+                        <Input
+                          id="education"
+                          value={newCandidate.education}
+                          onChange={(e) => setNewCandidate({...newCandidate, education: e.target.value})}
+                          placeholder="BS Computer Science"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setIsAddCandidateOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleAddCandidate}>
+                        Add Candidate
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col sm:flex-row gap-4">
@@ -141,6 +361,17 @@ export default function CandidatesPage() {
                   className="pl-10"
                 />
               </div>
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Filter by project" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Projects</SelectItem>
+                  {uniqueProjects.map((project) => (
+                    <SelectItem key={project} value={project}>{project}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Filter by status" />
@@ -185,10 +416,18 @@ export default function CandidatesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">
-                    <input type="checkbox" className="rounded" />
+                    <input 
+                      type="checkbox" 
+                      className="rounded"
+                      checked={selectedCandidates.length === filteredCandidates.length && filteredCandidates.length > 0}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                    />
                   </TableHead>
                   <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Phone</TableHead>
                   <TableHead>Position</TableHead>
+                  <TableHead>Project</TableHead>
                   <TableHead>Score</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Location</TableHead>
@@ -217,14 +456,21 @@ export default function CandidatesPage() {
                     <TableCell>
                       <div>
                         <div className="font-medium">{candidate.name}</div>
-                        <div className="text-sm text-muted-foreground">{candidate.email}</div>
+                        <div className="text-sm text-muted-foreground">{candidate.education}</div>
                       </div>
                     </TableCell>
+                    <TableCell>{candidate.email}</TableCell>
+                    <TableCell>{candidate.phone}</TableCell>
                     <TableCell>{candidate.position}</TableCell>
                     <TableCell>
+                      <Link href={`/projects/${candidate.projectId}`} className="text-blue-600 hover:underline">
+                        {candidate.project}
+                      </Link>
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">{candidate.score}</span>
-                        <Progress value={candidate.score} className="w-16 h-2" />
+                        <span className="font-medium">{candidate.averageScore}</span>
+                        <Progress value={candidate.averageScore} className="w-16 h-2" />
                       </div>
                     </TableCell>
                     <TableCell>

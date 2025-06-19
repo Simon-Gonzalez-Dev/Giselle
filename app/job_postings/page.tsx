@@ -20,7 +20,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Slider } from "@/components/ui/slider"
 import { Plus, MoreHorizontal, Edit, Copy, Trash2, Users, Calendar, MapPin } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 
 const jobs = [
   {
@@ -73,7 +74,9 @@ const scoringMetrics = [
   { key: "lifeExperience", label: "Life Experience", description: "Personal growth, diverse perspectives" },
 ]
 
-export default function JobsPage() {
+export default function JobPostingsPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [newJob, setNewJob] = useState({
     title: "",
@@ -92,8 +95,16 @@ export default function JobsPage() {
     },
   })
 
+  // Auto-open dialog if coming from dashboard
+  useEffect(() => {
+    if (searchParams.get('create') === 'true') {
+      setIsCreateDialogOpen(true)
+    }
+  }, [searchParams])
+
   const handleCreateJob = () => {
-    // In a real app, this would make an API call
+    // In a real app, this would make an API call and get the new project ID
+    const newProjectId = `proj-${Date.now()}`
     console.log("Creating job:", newJob)
     setIsCreateDialogOpen(false)
     setNewJob({
@@ -112,6 +123,8 @@ export default function JobsPage() {
         lifeExperience: 50,
       },
     })
+    // Navigate to the new project dashboard
+    router.push(`/projects/${newProjectId}`)
   }
 
   const getStatusColor = (status: string) => {
@@ -146,7 +159,7 @@ export default function JobsPage() {
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                Create Job
+                Create Job Posting
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">

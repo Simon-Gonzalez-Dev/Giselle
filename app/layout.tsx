@@ -9,7 +9,7 @@ import { Toaster } from "@/components/ui/toaster"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "HR CRM - Hiring Management System",
+  title: "Giselle - Hiring Management System",
   description: "Modern HR CRM tool for streamlined hiring processes",
     generator: 'v0.dev'
 }

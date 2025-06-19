@@ -173,4 +173,20 @@ export interface UserSettings {
     calendar: boolean
     linkedin: boolean
   }
+}
+
+export interface Project {
+  id: string
+  title: string
+  description: string
+  requirements: string
+  company: string
+  location: string
+  status: 'Active' | 'Draft' | 'Closed' | 'Paused'
+  createdDate: string
+  applicantCount: number
+  averageScore: number
+  interviewsScheduled: number
+  offersExtended: number
+  hiredCount: number
 } 

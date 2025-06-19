@@ -35,7 +35,7 @@ const navigationItems = [
   },
   {
     title: "Job Postings",
-    url: "/jobs",
+    url: "/job_postings",
     icon: Briefcase,
   },
   {
@@ -62,7 +62,7 @@ export function AppSidebar() {
         <div className="flex items-center gap-2 px-4 py-2">
           <Building2 className="h-6 w-6 text-blue-600" />
           <div>
-            <h1 className="font-semibold text-lg">HR CRM</h1>
+            <h1 className="font-semibold text-lg">Giselle</h1>
             <p className="text-xs text-muted-foreground">Hiring Management</p>
           </div>
         </div>
